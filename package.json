@@ -2,7 +2,10 @@
   "name": "prod-ready-serverless-workshop",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test": "cd prsls-sls && npm run test",
+    "test:e2e": "cd prsls-sls && npm run test:e2e"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
