@@ -32,6 +32,20 @@
                 "Resource": {
                   "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/dev/GET/restaurants"
                 }
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "ssm:GetParameters*"
+                ],
+                "Resource": [
+                  {
+                    "Fn::Sub": "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prsls-sls-yeyo/dev/get-restaurants/config"
+                  },
+                  {
+                    "Fn::Sub": "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prsls-sls-yeyo/dev/search-restaurants/config"
+                  }
+                ]
               }
             ]
           }
@@ -39,7 +53,9 @@
         "environment": {
           "rest_api_url": {
             "Fn::Sub": "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
-          }
+          },
+          "service_name": "prsls-sls-yeyo",
+          "stage": "dev"
         },
         "stage": "dev",
         "region": "us-east-1",
@@ -89,7 +105,6 @@
             }
           ],
           "environment": {
-            "default_results": "10",
             "restaurants_table": {
               "Ref": "RestaurantsTable"
             }
@@ -117,7 +132,6 @@
             }
           ],
           "environment": {
-            "default_results": "8",
             "restaurants_table": {
               "Ref": "RestaurantsTable"
             }
@@ -282,6 +296,20 @@
               "Resource": {
                 "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/dev/GET/restaurants"
               }
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ssm:GetParameters*"
+              ],
+              "Resource": [
+                {
+                  "Fn::Sub": "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prsls-sls-yeyo/dev/get-restaurants/config"
+                },
+                {
+                  "Fn::Sub": "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prsls-sls-yeyo/dev/search-restaurants/config"
+                }
+              ]
             }
           ]
         }
@@ -289,7 +317,9 @@
       "environment": {
         "rest_api_url": {
           "Fn::Sub": "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
-        }
+        },
+        "service_name": "prsls-sls-yeyo",
+        "stage": "dev"
       },
       "stage": "dev",
       "region": "us-east-1",
@@ -304,7 +334,7 @@
       "serviceProvider": null,
       "instanceParameters": null
     },
-    "serviceRawFile": "# \"org\" ensures this Service is used with the correct Serverless Framework Access Key.\norg: yeyop\n# \"service\" is the name of this project. This will also be added to your AWS resource names.\nservice: prsls-sls-yeyo\n\nprovider:\n  name: aws\n  runtime: nodejs20.x\n  iam:\n    role:\n      statements:\n        - Effect: Allow\n          Action: dynamodb:Scan\n          Resource: !GetAtt RestaurantsTable.Arn\n        - Effect: Allow\n          Action: execute-api:Invoke\n          Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants\n  environment:\n    rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}\n\n\ncustom:\n  export-env:\n    overwrite: true\n\nfunctions:\n  get-index:\n    handler: functions/get-index.handler\n    events:\n      - http:\n          path: /\n          method: get\n    environment:\n      # The Serverless framework ALWAYS uses the logical ID ApiGatewayRestApi for the API Gateway REST API resource it creates. \n      # So you can construct the URL for the /restaurants endpoint using the Fn::Sub CloudFormation pseudo function (or the !Sub shorthand) \n      # like this:\n      restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants\n      cognito_user_pool_id: !Ref CognitoUserPool\n      cognito_client_id: !Ref WebCognitoUserPoolClient\n      cognito_server_client_id: !Ref ServerCognitoUserPoolClient\n\n\n  get-restaurants:\n    handler: functions/get-restaurants.handler\n    events:\n      - http:\n          path: /restaurants\n          method: get\n          authorizer: aws_iam\n    environment:\n      default_results: 10\n      restaurants_table: !Ref RestaurantsTable\n\n  search-restaurants:\n    handler: functions/search-restaurants.handler\n    events:\n      - http:\n          path: /restaurants/search\n          method: post\n          authorizer:\n            name: CognitoAuthorizer\n            type: COGNITO_USER_POOLS\n            arn: !GetAtt CognitoUserPool.Arn\n    environment:\n      default_results: 8\n      restaurants_table: !Ref RestaurantsTable\n\n\nresources:\n  Resources:\n    RestaurantsTable:\n      Type: AWS::DynamoDB::Table\n      Properties:\n        BillingMode: PAY_PER_REQUEST\n        KeySchema:\n          - AttributeName: name\n            KeyType: HASH\n        AttributeDefinitions:\n          - AttributeName: name\n            AttributeType: S\n    CognitoUserPool:\n      Type: AWS::Cognito::UserPool\n      Properties:\n        UserPoolName: ${self:service}-${sls:stage}\n        # Allow users to log in with their email addresses.\n        # Verify that a user owns his/her email address (ie. by sending a verification code to the email)\n        # Allow usernames to be case insensitive\n        AliasAttributes:\n          - email\n        UsernameConfiguration:\n          CaseSensitive: false\n        AutoVerifiedAttributes:\n          - email\n        Policies:\n          PasswordPolicy:\n            MinimumLength: 8\n            RequireLowercase: true\n            RequireNumbers: true\n            RequireUppercase: true\n            RequireSymbols: true\n        Schema:\n          - AttributeDataType: String\n            Mutable: true\n            Name: given_name\n            Required: true\n            StringAttributeConstraints:\n              MinLength: \"1\"\n          - AttributeDataType: String\n            Mutable: true\n            Name: family_name\n            Required: true\n            StringAttributeConstraints:\n              MinLength: \"1\"\n          - AttributeDataType: String\n            Mutable: true\n            Name: email\n            Required: true\n            StringAttributeConstraints:\n              MinLength: \"1\"\n    WebCognitoUserPoolClient:\n      Type: AWS::Cognito::UserPoolClient\n      Properties:\n        ClientName: web\n        UserPoolId: !Ref CognitoUserPool\n        ExplicitAuthFlows:\n          - ALLOW_USER_SRP_AUTH\n          - ALLOW_REFRESH_TOKEN_AUTH\n        PreventUserExistenceErrors: ENABLED\n    ServerCognitoUserPoolClient:\n      Type: AWS::Cognito::UserPoolClient\n      Properties:\n        ClientName: server\n        UserPoolId: !Ref CognitoUserPool\n        ExplicitAuthFlows:\n          - ALLOW_ADMIN_USER_PASSWORD_AUTH\n          - ALLOW_REFRESH_TOKEN_AUTH\n        PreventUserExistenceErrors: ENABLED\n\n  Outputs:\n    RestaurantsTableName:\n      Value: !Ref RestaurantsTable\n\n    CognitoUserPoolId:\n      Value: !Ref CognitoUserPool\n\n    CognitoUserPoolArn:\n      Value: !GetAtt CognitoUserPool.Arn\n\n    CognitoUserPoolWebClientId:\n      Value: !Ref WebCognitoUserPoolClient\n\n    CognitoUserPoolServerClientId:\n      Value: !Ref ServerCognitoUserPoolClient\n\n\nplugins:\n  - serverless-export-env",
+    "serviceRawFile": "# \"org\" ensures this Service is used with the correct Serverless Framework Access Key.\norg: yeyop\n# \"service\" is the name of this project. This will also be added to your AWS resource names.\nservice: prsls-sls-yeyo\n\nprovider:\n  name: aws\n  runtime: nodejs20.x\n  iam:\n    role:\n      statements:\n        - Effect: Allow\n          Action: dynamodb:Scan\n          Resource: !GetAtt RestaurantsTable.Arn\n        - Effect: Allow\n          Action: execute-api:Invoke\n          Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants\n        - Effect: Allow\n          Action: ssm:GetParameters*\n          Resource:\n            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${sls:stage}/get-restaurants/config\n            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${sls:stage}/search-restaurants/config\n  environment:\n    rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}\n    service_name: ${self:service}\n    stage: ${sls:stage}\n\n\ncustom:\n  export-env:\n    overwrite: true\n\nfunctions:\n  get-index:\n    handler: functions/get-index.handler\n    events:\n      - http:\n          path: /\n          method: get\n    environment:\n      # The Serverless framework ALWAYS uses the logical ID ApiGatewayRestApi for the API Gateway REST API resource it creates. \n      # So you can construct the URL for the /restaurants endpoint using the Fn::Sub CloudFormation pseudo function (or the !Sub shorthand) \n      # like this:\n      restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants\n      cognito_user_pool_id: !Ref CognitoUserPool\n      cognito_client_id: !Ref WebCognitoUserPoolClient\n      cognito_server_client_id: !Ref ServerCognitoUserPoolClient\n\n\n  get-restaurants:\n    handler: functions/get-restaurants.handler\n    events:\n      - http:\n          path: /restaurants\n          method: get\n          authorizer: aws_iam\n    environment:\n      restaurants_table: !Ref RestaurantsTable\n\n  search-restaurants:\n    handler: functions/search-restaurants.handler\n    events:\n      - http:\n          path: /restaurants/search\n          method: post\n          authorizer:\n            name: CognitoAuthorizer\n            type: COGNITO_USER_POOLS\n            arn: !GetAtt CognitoUserPool.Arn\n    environment:\n      restaurants_table: !Ref RestaurantsTable\n\n\nresources:\n  Resources:\n    RestaurantsTable:\n      Type: AWS::DynamoDB::Table\n      Properties:\n        BillingMode: PAY_PER_REQUEST\n        KeySchema:\n          - AttributeName: name\n            KeyType: HASH\n        AttributeDefinitions:\n          - AttributeName: name\n            AttributeType: S\n    CognitoUserPool:\n      Type: AWS::Cognito::UserPool\n      Properties:\n        UserPoolName: ${self:service}-${sls:stage}\n        # Allow users to log in with their email addresses.\n        # Verify that a user owns his/her email address (ie. by sending a verification code to the email)\n        # Allow usernames to be case insensitive\n        AliasAttributes:\n          - email\n        UsernameConfiguration:\n          CaseSensitive: false\n        AutoVerifiedAttributes:\n          - email\n        Policies:\n          PasswordPolicy:\n            MinimumLength: 8\n            RequireLowercase: true\n            RequireNumbers: true\n            RequireUppercase: true\n            RequireSymbols: true\n        Schema:\n          - AttributeDataType: String\n            Mutable: true\n            Name: given_name\n            Required: true\n            StringAttributeConstraints:\n              MinLength: \"1\"\n          - AttributeDataType: String\n            Mutable: true\n            Name: family_name\n            Required: true\n            StringAttributeConstraints:\n              MinLength: \"1\"\n          - AttributeDataType: String\n            Mutable: true\n            Name: email\n            Required: true\n            StringAttributeConstraints:\n              MinLength: \"1\"\n    WebCognitoUserPoolClient:\n      Type: AWS::Cognito::UserPoolClient\n      Properties:\n        ClientName: web\n        UserPoolId: !Ref CognitoUserPool\n        ExplicitAuthFlows:\n          - ALLOW_USER_SRP_AUTH\n          - ALLOW_REFRESH_TOKEN_AUTH\n        PreventUserExistenceErrors: ENABLED\n    ServerCognitoUserPoolClient:\n      Type: AWS::Cognito::UserPoolClient\n      Properties:\n        ClientName: server\n        UserPoolId: !Ref CognitoUserPool\n        ExplicitAuthFlows:\n          - ALLOW_ADMIN_USER_PASSWORD_AUTH\n          - ALLOW_REFRESH_TOKEN_AUTH\n        PreventUserExistenceErrors: ENABLED\n\n  Outputs:\n    RestaurantsTableName:\n      Value: !Ref RestaurantsTable\n\n    CognitoUserPoolId:\n      Value: !Ref CognitoUserPool\n\n    CognitoUserPoolArn:\n      Value: !GetAtt CognitoUserPool.Arn\n\n    CognitoUserPoolWebClientId:\n      Value: !Ref WebCognitoUserPoolClient\n\n    CognitoUserPoolServerClientId:\n      Value: !Ref ServerCognitoUserPoolClient\n\n\nplugins:\n  - serverless-export-env",
     "command": [
       "export-env"
     ],
@@ -319,12 +349,12 @@
     "serviceProviderAwsCfStackName": "prsls-sls-yeyo-dev",
     "serviceProviderAwsCfStackId": "arn:aws:cloudformation:us-east-1:364652780321:stack/prsls-sls-yeyo-dev/1c434a20-6836-11f0-95de-0affe32ffe85",
     "serviceProviderAwsCfStackCreated": "2025-07-24T02:30:06.135Z",
-    "serviceProviderAwsCfStackUpdated": "2025-07-27T05:01:58.800Z",
+    "serviceProviderAwsCfStackUpdated": "2025-08-06T03:55:24.693Z",
     "serviceProviderAwsCfStackStatus": "UPDATE_COMPLETE",
     "serviceProviderAwsCfStackOutputs": [
       {
         "OutputKey": "GetDashrestaurantsLambdaFunctionQualifiedArn",
-        "OutputValue": "arn:aws:lambda:us-east-1:364652780321:function:prsls-sls-yeyo-dev-get-restaurants:20",
+        "OutputValue": "arn:aws:lambda:us-east-1:364652780321:function:prsls-sls-yeyo-dev-get-restaurants:22",
         "Description": "Current Lambda function version",
         "ExportName": "sls-prsls-sls-yeyo-dev-GetDashrestaurantsLambdaFunctionQualifiedArn"
       },
@@ -357,13 +387,13 @@
       },
       {
         "OutputKey": "GetDashindexLambdaFunctionQualifiedArn",
-        "OutputValue": "arn:aws:lambda:us-east-1:364652780321:function:prsls-sls-yeyo-dev-get-index:21",
+        "OutputValue": "arn:aws:lambda:us-east-1:364652780321:function:prsls-sls-yeyo-dev-get-index:23",
         "Description": "Current Lambda function version",
         "ExportName": "sls-prsls-sls-yeyo-dev-GetDashindexLambdaFunctionQualifiedArn"
       },
       {
         "OutputKey": "SearchDashrestaurantsLambdaFunctionQualifiedArn",
-        "OutputValue": "arn:aws:lambda:us-east-1:364652780321:function:prsls-sls-yeyo-dev-search-restaurants:3",
+        "OutputValue": "arn:aws:lambda:us-east-1:364652780321:function:prsls-sls-yeyo-dev-search-restaurants:5",
         "Description": "Current Lambda function version",
         "ExportName": "sls-prsls-sls-yeyo-dev-SearchDashrestaurantsLambdaFunctionQualifiedArn"
       },

@@ -15,8 +15,15 @@ provider:
         - Effect: Allow
           Action: execute-api:Invoke
           Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
+        - Effect: Allow
+          Action: ssm:GetParameters*
+          Resource:
+            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${sls:stage}/get-restaurants/config
+            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${sls:stage}/search-restaurants/config
   environment:
     rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}
+    service_name: ${self:service}
+    stage: ${sls:stage}
 
 
 custom:
@@ -48,7 +55,6 @@ functions:
           method: get
           authorizer: aws_iam
     environment:
-      default_results: 10
       restaurants_table: !Ref RestaurantsTable
 
   search-restaurants:
@@ -62,7 +68,6 @@ functions:
             type: COGNITO_USER_POOLS
             arn: !GetAtt CognitoUserPool.Arn
     environment:
-      default_results: 8
       restaurants_table: !Ref RestaurantsTable
 
 
