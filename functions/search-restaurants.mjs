@@ -22,6 +22,8 @@ const findRestaurantsByTheme = async (theme, count) => {
 }
 
 export const handler = middy(async (event, context) => {
+  console.info(context.secretString)
+  
   const req = JSON.parse(event.body)
   const theme = req.theme
   const restaurants = await findRestaurantsByTheme(theme, context.config.defaultResults)
@@ -33,9 +35,10 @@ export const handler = middy(async (event, context) => {
   return response
 }).use(ssm({
   cache: true,
-  cacheExpiry: 1 * 60 * 1000, // 1 mins
+  cacheExpiry: 1 * 60 * 1000, // 1 mins,
   setToContext: true,
   fetchData: {
-    config: `/${service_name}/${ssmStage}/search-restaurants/config`
+    config: `/${service_name}/${ssmStage}/search-restaurants/config`,
+    secretString: `/${service_name}/${ssmStage}/search-restaurants/secretString`
   }
 }))
